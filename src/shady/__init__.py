@@ -9,6 +9,8 @@ from .memory import Memory, MemoryStore, Message
 from .permissions import ActionRisk, ApprovalRequired, PermissionGate
 from .planner import TaskPlan, TaskPlanner, TaskPlanningError
 from .providers import ModelProvider, ModelRouter
+from .openai_compatible import OpenAICompatibleProvider
+from .provider_config import build_router_from_env
 from .task_engine import TaskCoordinator, TaskProgress
 from .tasks import PlannedStep, StepStatus, Task, TaskStatus, TaskStep, TaskStore
 from .tools import ToolDefinition, ToolExecutor, ToolRegistry
