@@ -37,6 +37,30 @@ pytest
 
 The SQLite database is created locally at `data/shady.sqlite3` by default. Set `SHADY_DB_PATH` to choose another path. Keep database files and credentials out of Git.
 
+## Run the web interface
+
+The repository includes a small standard-library web server and an owner-token-protected chat API. Install the project, then set these environment variables in the server environment:
+
+- `SHADY_API_KEY` and `SHADY_MODEL` for the selected model endpoint
+- `SHADY_ACCESS_TOKEN` — a private random access code of at least 32 characters
+- Optional `SHADY_API_BASE_URL`, `SHADY_PROVIDER_NAME`, `SHADY_TIMEOUT_SECONDS`, and `PORT`
+
+Generate an access code locally with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Start the server with:
+
+```bash
+python serve.py
+```
+
+Open the server address in a browser. The landing page's Enter button opens the chat panel. The owner enters the access code; it is held in browser memory only and sent as a bearer token over the same-origin HTTPS connection. The API validates the token, session UUID, message size, and configured model before calling Shady. The health endpoint does not reveal credentials.
+
+Do not deploy the service publicly until all three required secrets are configured in the host's private environment settings and HTTPS is enabled. The access code is a single-owner shared secret, not a multi-user account system. Rotate it immediately if exposed. Model usage can incur charges.
+
 ## Tool execution model
 
 Application code must explicitly register each available tool in `ToolRegistry`. The model does not get arbitrary shell, filesystem, network, or database access merely by asking for it.
