@@ -7,6 +7,7 @@ from .engine import ShadyEngine
 from .identity import SHADY_IDENTITY
 from .memory import Memory, MemoryStore, Message
 from .permissions import ActionRisk, ApprovalRequired, PermissionGate
+from .planner import TaskPlan, TaskPlanner, TaskPlanningError
 from .providers import ModelProvider, ModelRouter
 from .task_engine import TaskCoordinator, TaskProgress
 from .tasks import PlannedStep, StepStatus, Task, TaskStatus, TaskStep, TaskStore
@@ -17,6 +18,6 @@ __all__ = [
     "ConversationService", "Memory", "MemoryStore", "Message",
     "ModelProvider", "ModelRouter", "PermissionGate", "PlannedStep",
     "SHADY_IDENTITY", "ShadyEngine", "StepStatus", "Task", "TaskCoordinator",
-    "TaskProgress", "TaskStatus", "TaskStep", "TaskStore", "ToolDefinition",
+    "TaskPlan", "TaskPlanner", "TaskPlanningError", "TaskProgress", "TaskStatus", "TaskStep", "TaskStore", "ToolDefinition",
     "ToolExecutor", "ToolRegistry",
 ]
