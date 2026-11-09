@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d10">
+  <meta name="description" content="Meet ODB SHADY 6.9 from Dotson Labs. Intelligence with attitude.">
+  <title>ODB SHADY 6.9 | Dotson Labs</title>
+  <style>
+    :root { color-scheme: dark; --mint:#b0f2e9; --ink:#f1f4f2; --muted:#b7c6c8; }
+    * { box-sizing:border-box; }
+    html { min-height:100%; background:#080d10; }
+    body { min-height:100vh; margin:0; background:#080d10; color:var(--ink); font-family:Arial,Helvetica,sans-serif; }
+    .entrance { min-height:100svh; position:relative; isolation:isolate; overflow:hidden; display:flex; flex-direction:column; background:#080d10; }
+    .art { position:absolute; inset:0; z-index:-3; width:100%; height:100%; object-fit:cover; object-position:65% center; }
+    .shade { position:absolute; inset:0; z-index:-2; background:linear-gradient(90deg,rgba(5,12,15,.96) 0%,rgba(5,12,15,.78) 42%,rgba(5,12,15,.15) 100%),linear-gradient(0deg,rgba(5,12,15,.92),transparent 55%); }
+    nav { display:flex; justify-content:space-between; align-items:center; padding:32px 6vw; }
+    .brand { color:inherit; text-decoration:none; font-weight:900; font-size:25px; letter-spacing:-1px; }
+    .brand b { color:#078bff; }
+    button { font:inherit; cursor:pointer; }
+    .share { min-height:42px; padding:8px 14px; border:1px solid #3997a3; border-radius:8px; background:#102a36; color:var(--mint); font-weight:700; }
+    .copy-note { min-height:18px; margin-top:6px; color:var(--muted); text-align:right; font-size:12px; }
+    .copy { margin:auto 0 0; max-width:650px; padding:clamp(90px,17vh,180px) 6vw 55px; }
+    .eyebrow { margin:0 0 28px; color:#8dddd7; font:11px monospace; letter-spacing:4px; }
+    h1 { margin:0 0 26px; font-size:clamp(48px,7vw,78px); line-height:.99; letter-spacing:-4px; font-weight:800; }
+    h1 span { color:#a5b4b5; }
+    .intro { max-width:390px; margin:0 0 30px; color:var(--muted); font-size:17px; line-height:1.7; }
+    .enter { display:inline-flex; align-items:center; gap:32px; min-height:58px; padding:18px 24px; border:1px solid var(--mint); border-radius:3px; background:var(--mint); color:#081817; font-size:14px; font-weight:800; transition:transform .2s,background .2s; }
+    .enter:hover { transform:translateY(-2px); background:#fff; }
+    .enter span { font-size:22px; }
+    .hint { margin:15px 0 0; color:#91a6a8; font-size:11px; }
+    footer { display:flex; justify-content:space-between; gap:18px; padding:24px 6vw; border-top:1px solid #ffffff1c; color:#8da3a5; font:9px monospace; letter-spacing:2px; }
+    .notice { display:none; max-width:430px; margin-top:22px; padding:15px 17px; border:1px solid #37616d; border-radius:10px; background:#0a151beF; color:#d7ecec; font-size:14px; line-height:1.6; }
+    .notice.show { display:block; }
+    a:focus-visible,button:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+    @media(max-width:650px) {
+      nav { padding:24px; }
+      .art { top:70px; height:55%; object-position:center; }
+      .shade { background:linear-gradient(0deg,#080d10 28%,rgba(8,13,16,.78) 55%,rgba(8,13,16,.08) 100%); }
+      .copy { margin:auto 0 0; padding:calc(48vh - 15px) 24px 40px; }
+      h1 { font-size:52px; letter-spacing:-2.5px; }
+      .eyebrow { margin-bottom:20px; }
+      .intro { font-size:15px; }
+      footer { padding:20px 24px; font-size:8px; }
+      footer span:last-child { display:none; }
+    }
+    @media(prefers-reduced-motion:reduce) { .enter { transition:none; } }
+  </style>
+</head>
+<body>
+  <main class="entrance">
+    <img class="art" src="https://raw.githubusercontent.com/dotsond873/Dotsons-AI-LAB/main/frontend/assets/odb-lab-v2.webp" alt="Humanoid AI working at illuminated consoles inside Dotson Labs">
+    <div class="shade" aria-hidden="true"></div>
+    <nav aria-label="Main navigation">
+      <a class="brand" href="#home">Dotson <b>Labs</b></a>
+      <div>
+        <button class="share" id="share" type="button">Share Shady</button>
+        <div class="copy-note" id="share-note" role="status" aria-live="polite"></div>
+      </div>
+    </nav>
+    <section class="copy" id="home">
+      <p class="eyebrow">WELCOME TO THE LAB</p>
+      <h1>Intelligence.<br><span>With attitude.</span></h1>
+      <p class="intro">Meet ODB SHADY 6.9. Your space to ask questions, explore ideas, and search the web.</p>
+      <button class="enter" id="enter" type="button">Enter ODB SHADY 6.9 <span aria-hidden="true">↗</span></button>
+      <p class="hint">Step inside. Bring your curiosity.</p>
+      <div class="notice" id="notice" role="status" aria-live="polite">The new front door is in place. Shady's conversation engine is being connected to this clean rebuild next. No old system has been reactivated.</div>
+    </section>
+    <footer><span>DOTSON LABS / ARTIFICIAL INTELLIGENCE</span><span>ASK. EXPLORE. CREATE.</span></footer>
+  </main>
+  <script>
+    const notice = document.getElementById("notice");
+    document.getElementById("enter").addEventListener("click", () => {
+      notice.classList.add("show");
+      notice.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+    });
+    document.getElementById("share").addEventListener("click", async () => {
+      const url = window.location.href;
+      const status = document.getElementById("share-note");
+      try {
+        if (navigator.share) await navigator.share({ title: "ODB SHADY 6.9", url });
+        else { await navigator.clipboard.writeText(url); status.textContent = "Link copied"; }
+      } catch (error) {
+        if (error.name !== "AbortError") status.textContent = "Sharing is unavailable in this browser.";
+      }
+    });
+  </script>
+</body>
+</html>
