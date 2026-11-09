@@ -79,18 +79,27 @@ class MemoryStore:
         return Memory(**dict(row))
 
     def search_memories(self, query: str, *, limit: int = 10) -> list[Memory]:
-        terms = [part for part in query.strip().split() if part]
+        # Search for meaningful terms independently rather than requiring every
+        # word in a natural-language question to appear in one saved memory.
+        ignored = {"the", "and", "for", "with", "about", "tell", "what", "who", "when", "where", "how", "does", "did", "are", "was", "is", "you", "your", "me", "my"}
+        terms = list(dict.fromkeys(
+            part.strip(".,!?;:\"'()[]{}").lower()
+            for part in query.split()
+            if len(part.strip(".,!?;:\"'()[]{}")) >= 3
+            and part.strip(".,!?;:\"'()[]{}").lower() not in ignored
+        ))
         if not terms:
             return []
         if limit < 1:
             raise ValueError("limit must be at least 1.")
-        clauses = " AND ".join("content LIKE ?" for _ in terms)
-        params = [f"%{term}%" for term in terms]
+        clauses = " OR ".join("content LIKE ?" for _ in terms)
+        score = " + ".join("CASE WHEN content LIKE ? THEN 1 ELSE 0 END" for _ in terms)
+        patterns = [f"%{term}%" for term in terms]
         with self._connect() as db:
             rows = db.execute(
                 f"SELECT id, content, created_at FROM memories "
-                f"WHERE {clauses} ORDER BY id DESC LIMIT ?",
-                (*params, limit),
+                f"WHERE {clauses} ORDER BY ({score}) DESC, id DESC LIMIT ?",
+                (*patterns, *patterns, limit),
             ).fetchall()
         return [Memory(**dict(row)) for row in rows]
 
