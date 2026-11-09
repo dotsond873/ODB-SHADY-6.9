@@ -61,13 +61,33 @@ Plans store their JSON arguments in the local SQLite database. Do not include pa
 
 `TaskPlanner` can ask any configured `ModelRouter` provider to propose a task plan. It supplies the model with the registered tool catalog, then strictly parses the returned JSON and rejects unknown tools, undeclared arguments, malformed steps, and plans outside the configured step limit. The planner only proposes; it does not execute tools or grant approvals. A validated `TaskPlan` can be passed to `TaskCoordinator.create(title, steps)` for persistence and controlled execution.
 
-A model provider must be configured before model-assisted planning can run. No provider or API credentials are bundled in this repository. Until one is connected, plans can still be created directly in trusted application code.
+A model provider must be configured before model-assisted planning can run. No provider or API credentials are bundled in this repository. Until a runtime key and model are configured, plans can still be created directly in trusted application code.
 
 ## Connecting models
 
-Implement the `ModelProvider` contract in `src/shady/providers.py`, then pass provider adapters to `ModelRouter`. Credentials must come from environment variables or a secret manager. Never hard-code or commit API keys.
+The repository includes an OpenAI-compatible chat-completions adapter in `src/shady/openai_compatible.py`. It uses Python's standard library and can connect to an OpenAI API endpoint or another endpoint implementing the same chat-completions request/response shape.
 
-No commercial model provider is bundled or configured yet. The core does not pretend to be connected when it is not.
+Set these private environment variables in the deployment/runtime environment:
+
+- `SHADY_API_KEY` — required secret API key
+- `SHADY_MODEL` — required model identifier supported by your endpoint
+- `SHADY_API_BASE_URL` — optional; defaults to `https://api.openai.com/v1`
+- `SHADY_PROVIDER_NAME` — optional display name; defaults to `primary`
+- `SHADY_TIMEOUT_SECONDS` — optional request timeout; defaults to 45
+
+Copy `.env.example` as a reference only. The application does not automatically load a local `.env` file. Configure secrets in your shell or hosting platform's private environment settings. Never commit a real API key.
+
+Example application setup:
+
+```python
+from shady import ConversationService, MemoryStore, build_router_from_env
+
+router = build_router_from_env()
+memory = MemoryStore()
+conversation = ConversationService(router=router, memory=memory)
+```
+
+The adapter sends requests only when the application calls it. Model usage may incur provider charges; costs, limits, and billing are controlled by the selected provider. No API key is included in this repository.
 
 ## Safety and control
 
@@ -80,7 +100,7 @@ No commercial model provider is bundled or configured yet. The core does not pre
 ## Roadmap
 
 1. Run and harden the current test suite.
-2. Add opt-in model-provider adapters and configuration.
+2. Configure the included model adapter with a provider key and supported model.
 3. Add authenticated approval UI and secure tool sandboxing.
 4. Add a model-assisted planner, authenticated approval UI, and background worker.
 5. Add web research, project integrations, voice, and secure deployment.
