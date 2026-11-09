@@ -2,11 +2,20 @@
 
 This repository includes a Render Blueprint in `render.yaml`. It creates one small Python web service that serves the landing page and authenticated chat API from the same HTTPS origin.
 
+## Model provider: Groq Cloud
+
+ODB SHADY 6.9 is configured to use Groq Cloud through its OpenAI-compatible API.
+
+- API base URL: `https://api.groq.com/openai/v1`
+- Default model: `openai/gpt-oss-120b`
+- Private API-key environment variable: `SHADY_API_KEY`
+
+The model ID is configurable through `SHADY_MODEL`. Check Groq's current model catalog before changing it: https://console.groq.com/docs/models. Groq usage may incur charges or be subject to account rate limits; review the current pricing and limits before using it.
+
 ## Before deploying
 
 You need:
-- An API key from the model provider you choose.
-- A model identifier enabled for that API key.
+- An active Groq Cloud API key.
 - A private owner access token at least 32 characters long.
 
 Generate a strong owner token on a trusted device:
@@ -22,11 +31,11 @@ Never paste either secret into GitHub files, chat messages, or source code.
 1. Sign in to Render and choose **New → Blueprint**.
 2. Select the public repository `dotsond873/ODB-SHADY-6.9`.
 3. Review the service from `render.yaml`.
-4. In the service's Environment settings, set the private values for `SHADY_ACCESS_TOKEN`, `SHADY_API_KEY`, and `SHADY_MODEL`. Keep them secret.
+4. In the service's Environment settings, set the private values for `SHADY_ACCESS_TOKEN` and `SHADY_API_KEY`. Keep them secret. The Blueprint supplies the Groq endpoint and default model.
 5. Deploy the service.
 6. Open its HTTPS URL. Select **Enter ODB SHADY 6.9**, enter the owner token, and send a short test message.
 
-The model provider may charge for usage. Render hosting may also have plan limits or charges; review the current plan and any paid add-ons before confirming deployment.
+Render hosting may also have plan limits or charges; review the current plan and any paid add-ons before confirming deployment.
 
 ## Storage warning
 
