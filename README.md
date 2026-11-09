@@ -14,7 +14,11 @@ ODB SHADY 6.9 is an independent, modular personal AI assistant project by Dotson
 - Risk-classified tool execution
 - One-time, action-specific approval requests for non-read-only tools
 - Local audit trail that records action metadata without raw arguments
-- Initial automated tests
+- Persistent task plans with ordered steps and SQLite-backed progress
+- Resumable step-by-step task coordinator
+- Human approval pauses for every non-read-only task action
+- Explicit task cancellation and failure tracking
+- Automated task-orchestration tests
 
 ## Quick start
 
@@ -45,6 +49,14 @@ Application code must explicitly register each available tool in `ToolRegistry`.
 
 The application must present the approval request to the user and call `ApprovalStore.approve` only after receiving the user's explicit confirmation. A future user interface must authenticate that approval step; the current library is the enforcement foundation, not a complete approval UI.
 
+## Task planning and execution
+
+Trusted application code can create a task from an ordered list of registered tool steps using `TaskCoordinator`. The plan is validated against the allowlisted `ToolRegistry` before it is saved. Task and step state is persisted in SQLite, so queued, running, waiting-approval, completed, failed, and cancelled work can be inspected after a restart.
+
+Call `run_next(task_id)` to advance one step. Read-only steps execute after validation. Any other risk class pauses and creates an action-specific approval request. An authenticated application interface must obtain explicit confirmation before calling `approve_and_run(..., user_confirmed=True)`. The coordinator never approves on the model's behalf, and a step executes only after the one-time approval is consumed by `ToolExecutor`. A denied approval marks the step failed; cancellation also requires explicit confirmation.
+
+Plans store their JSON arguments in the local SQLite database. Do not include passwords, API keys, payment data, or other secrets. Protect the database file. This is a deterministic task runner, not yet an LLM task planner or background worker: a future planner may propose plans, but the application must validate them and keep the approval boundary.
+
 ## Connecting models
 
 Implement the `ModelProvider` contract in `src/shady/providers.py`, then pass provider adapters to `ModelRouter`. Credentials must come from environment variables or a secret manager. Never hard-code or commit API keys.
@@ -64,7 +76,7 @@ No commercial model provider is bundled or configured yet. The core does not pre
 1. Run and harden the current test suite.
 2. Add opt-in model-provider adapters and configuration.
 3. Add authenticated approval UI and secure tool sandboxing.
-4. Add task planning, background jobs, and human approval workflow.
+4. Add a model-assisted planner, authenticated approval UI, and background worker.
 5. Add web research, project integrations, voice, and secure deployment.
 6. Add backup, restore, monitoring, and emergency-stop controls.
 
