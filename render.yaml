@@ -14,10 +14,10 @@ services:
       - key: SHADY_API_KEY
         sync: false
       - key: SHADY_MODEL
-        sync: false
+        value: openai/gpt-oss-120b
       - key: SHADY_API_BASE_URL
-        value: https://api.openai.com/v1
+        value: https://api.groq.com/openai/v1
       - key: SHADY_PROVIDER_NAME
-        value: primary
+        value: groq
       - key: SHADY_TIMEOUT_SECONDS
         value: "45"
