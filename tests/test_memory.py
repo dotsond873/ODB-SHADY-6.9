@@ -36,3 +36,12 @@ def test_message_history_is_session_scoped_and_ordered(tmp_path):
 def test_invalid_message_role_is_rejected(tmp_path):
     with pytest.raises(ValueError):
         MemoryStore(tmp_path / "db.sqlite3").add_message("one", "system", "Nope")
+
+
+def test_memory_search_matches_relevant_terms_in_natural_language_query(tmp_path):
+    store = MemoryStore(tmp_path / "db.sqlite3")
+    store.add_memory("The project codename is SHADY.")
+    store.add_memory("The store sells vintage furniture.")
+
+    results = store.search_memories("Tell me about the SHADY project")
+    assert [item.content for item in results] == ["The project codename is SHADY."]
