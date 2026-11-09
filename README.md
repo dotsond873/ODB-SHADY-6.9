@@ -3,18 +3,17 @@
 
 ODB SHADY 6.9 is an independent, modular personal AI assistant project by Dotson Labs.
 
-## Mission
-
-Build one central AI capable of coordinating multiple model providers, retaining user-controlled memory, researching information, developing software, managing authorized projects, and performing approved tasks safely.
-
 ## Current foundation
 
 - Shady's stable identity and behavioral principles
 - Provider-neutral model adapter contract
-- Multi-provider routing with ordered fallback and explicit preference
-- Local SQLite memory and conversation history
-- Bounded conversation context and relevant-memory retrieval
-- Default-deny approval gate for consequential and destructive actions
+- Multi-provider routing with preferred-model selection and ordered fallback
+- Local SQLite memory and session-scoped conversation history
+- Relevant-memory retrieval for conversations
+- Allowlisted tool registry with argument validation
+- Risk-classified tool execution
+- One-time, action-specific approval requests for non-read-only tools
+- Local audit trail that records action metadata without raw arguments
 - Initial automated tests
 
 ## Quick start
@@ -32,38 +31,42 @@ pip install -e ".[dev]"
 pytest
 ```
 
-The memory database is created locally at `data/shady.sqlite3` by default. Set `SHADY_DB_PATH` to choose another path. Keep database files and credentials out of Git.
+The SQLite database is created locally at `data/shady.sqlite3` by default. Set `SHADY_DB_PATH` to choose another path. Keep database files and credentials out of Git.
+
+## Tool execution model
+
+Application code must explicitly register each available tool in `ToolRegistry`. The model does not get arbitrary shell, filesystem, network, or database access merely by asking for it.
+
+- Read-only tools can execute after argument validation.
+- Reversible, consequential, and destructive tools require a matching approval request.
+- Approval requests are action-specific and can be consumed only once.
+- Unknown tools and undeclared arguments are rejected.
+- The audit log records action name, risk, status, and safe metadata—not raw tool arguments.
+
+The application must present the approval request to the user and call `ApprovalStore.approve` only after receiving the user's explicit confirmation. A future user interface must authenticate that approval step; the current library is the enforcement foundation, not a complete approval UI.
 
 ## Connecting models
 
-Implement the `ModelProvider` contract in `src/shady/providers.py`, then pass one or more provider adapters to `ModelRouter`. Provider credentials must be supplied through environment variables or a secret manager; never hard-code or commit API keys.
+Implement the `ModelProvider` contract in `src/shady/providers.py`, then pass provider adapters to `ModelRouter`. Credentials must come from environment variables or a secret manager. Never hard-code or commit API keys.
 
-No commercial model provider is bundled or configured yet. The core deliberately does not pretend to be connected when it is not.
+No commercial model provider is bundled or configured yet. The core does not pretend to be connected when it is not.
 
 ## Safety and control
 
-- Read-only actions may proceed without approval.
-- Reversible, consequential, and destructive actions require explicit approval.
 - Memory is local-first and can be listed or deleted through `MemoryStore`.
-- Do not save passwords, API keys, payment information, or other secrets as memories.
-- Model fallback is limited to the configured providers; it does not silently add services or spend money.
+- Do not save passwords, API keys, payment details, or other secrets as memories.
+- Consequential and destructive actions require explicit user approval.
+- Model fallback is limited to configured providers; it does not silently add services or spend money.
+- Audit records are local and should be protected like other application data.
 
 ## Roadmap
 
-1. Complete and test the core memory/conversation layer.
+1. Run and harden the current test suite.
 2. Add opt-in model-provider adapters and configuration.
-3. Add tool registry with permission checks and auditable execution.
+3. Add authenticated approval UI and secure tool sandboxing.
 4. Add task planning, background jobs, and human approval workflow.
 5. Add web research, project integrations, voice, and secure deployment.
 6. Add backup, restore, monitoring, and emergency-stop controls.
-
-## Design principles
-
-- Independent, modular, expandable architecture
-- Privacy and security first
-- Human oversight for consequential actions
-- Transparent decision-making and verifiable execution
-- No unnecessary recurring platform dependency
 
 ## Project boundary
 
