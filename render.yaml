@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: odb-shady-69
+    runtime: python
+    plan: free
+    buildCommand: pip install -e .
+    startCommand: python serve.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SHADY_ACCESS_TOKEN
+        sync: false
+      - key: SHADY_API_KEY
+        sync: false
+      - key: SHADY_MODEL
+        sync: false
+      - key: SHADY_API_BASE_URL
+        value: https://api.openai.com/v1
+      - key: SHADY_PROVIDER_NAME
+        value: primary
+      - key: SHADY_TIMEOUT_SECONDS
+        value: "45"
