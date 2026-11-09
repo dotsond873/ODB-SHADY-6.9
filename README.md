@@ -14,7 +14,7 @@ ODB SHADY 6.9 is an independent, modular personal AI assistant project by Dotson
 - Risk-classified tool execution
 - One-time, action-specific approval requests for non-read-only tools
 - Local audit trail that records action metadata without raw arguments
-- Persistent task plans with ordered steps and SQLite-backed progress
+- Model-assisted task-plan proposals with strict registered-tool validation\n- Persistent task plans with ordered steps and SQLite-backed progress
 - Resumable step-by-step task coordinator
 - Human approval pauses for every non-read-only task action
 - Explicit task cancellation and failure tracking
@@ -56,6 +56,12 @@ Trusted application code can create a task from an ordered list of registered to
 Call `run_next(task_id)` to advance one step. Read-only steps execute after validation. Any other risk class pauses and creates an action-specific approval request. An authenticated application interface must obtain explicit confirmation before calling `approve_and_run(..., user_confirmed=True)`. The coordinator never approves on the model's behalf, and a step executes only after the one-time approval is consumed by `ToolExecutor`. A denied approval marks the step failed; cancellation also requires explicit confirmation.
 
 Plans store their JSON arguments in the local SQLite database. Do not include passwords, API keys, payment data, or other secrets. Protect the database file. This is a deterministic task runner, not yet an LLM task planner or background worker: a future planner may propose plans, but the application must validate them and keep the approval boundary.
+
+## Model-assisted planning
+
+`TaskPlanner` can ask any configured `ModelRouter` provider to propose a task plan. It supplies the model with the registered tool catalog, then strictly parses the returned JSON and rejects unknown tools, undeclared arguments, malformed steps, and plans outside the configured step limit. The planner only proposes; it does not execute tools or grant approvals. A validated `TaskPlan` can be passed to `TaskCoordinator.create(title, steps)` for persistence and controlled execution.
+
+A model provider must be configured before model-assisted planning can run. No provider or API credentials are bundled in this repository. Until one is connected, plans can still be created directly in trusted application code.
 
 ## Connecting models
 
