@@ -33,6 +33,25 @@
     .notice { display:none; max-width:430px; margin-top:22px; padding:15px 17px; border:1px solid #37616d; border-radius:10px; background:#0a151beF; color:#d7ecec; font-size:14px; line-height:1.6; }
     .notice.show { display:block; }
     a:focus-visible,button:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+
+    .chat-panel { display:none; max-width:650px; margin:0 6vw 48px; padding:24px; border:1px solid #37616d; border-radius:12px; background:rgba(6,17,22,.94); }
+    .chat-panel.open { display:block; }
+    .chat-panel h2 { margin:0 0 8px; font-size:24px; }
+    .chat-help { color:var(--muted); font-size:13px; line-height:1.5; }
+    .auth-row,.chat-row { display:flex; gap:10px; margin-top:14px; }
+    .auth-row input,.chat-row input { min-width:0; flex:1; padding:13px; border:1px solid #45636b; border-radius:6px; background:#071116; color:var(--ink); }
+    .auth-row button,.chat-row button { padding:12px 16px; border:0; border-radius:6px; background:var(--mint); color:#081817; font-weight:800; }
+    .chat-status { min-height:20px; margin:12px 0 0; color:#a9d7d2; font-size:12px; }
+    .chat-log { display:flex; flex-direction:column; gap:10px; max-height:340px; overflow:auto; margin-top:16px; }
+    .bubble { max-width:90%; padding:12px 14px; border-radius:10px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; line-height:1.5; }
+    .bubble.user { align-self:flex-end; background:#173e45; }
+    .bubble.assistant { align-self:flex-start; background:#18252b; }
+    .chat-compose { display:none; }
+    .chat-compose.ready { display:block; }
+    @media(max-width:650px) {
+      .chat-panel { margin:0 24px 35px; padding:18px; }
+      .auth-row,.chat-row { flex-direction:column; }
+    }
     @media(max-width:650px) {
       nav { padding:24px; }
       .art { top:70px; height:55%; object-position:center; }
@@ -64,15 +83,105 @@
       <p class="intro">Meet ODB SHADY 6.9. Your space to ask questions, explore ideas, and search the web.</p>
       <button class="enter" id="enter" type="button">Enter ODB SHADY 6.9 <span aria-hidden="true">↗</span></button>
       <p class="hint">Step inside. Bring your curiosity.</p>
-      <div class="notice" id="notice" role="status" aria-live="polite">The new front door is in place. Shady's conversation engine is being connected to this clean rebuild next. No old system has been reactivated.</div>
+    </section>
+
+    <section class="chat-panel" id="chat-panel" aria-label="Shady chat">
+      <h2>Talk to Shady</h2>
+      <p class="chat-help">Enter your private access code to unlock this owner-only chat. Your code stays in this browser tab and is not saved to storage.</p>
+      <div class="auth-row" id="auth-row">
+        <input id="access-token" type="password" autocomplete="current-password" placeholder="Private access code" aria-label="Private access code">
+        <button id="connect" type="button">Connect</button>
+      </div>
+      <p class="chat-status" id="chat-status" role="status" aria-live="polite">Waiting for secure connection.</p>
+      <div class="chat-compose" id="chat-compose">
+        <div class="chat-log" id="chat-log" aria-live="polite"></div>
+        <form class="chat-row" id="chat-form">
+          <input id="chat-message" type="text" maxlength="6000" autocomplete="off" placeholder="Ask Shady something..." aria-label="Message to Shady" required>
+          <button id="send" type="submit">Send</button>
+        </form>
+      </div>
     </section>
     <footer><span>DOTSON LABS / ARTIFICIAL INTELLIGENCE</span><span>ASK. EXPLORE. CREATE.</span></footer>
   </main>
   <script>
-    const notice = document.getElementById("notice");
+
+    let accessToken = "";
+    const sessionId = crypto.randomUUID();
+    const chatPanel = document.getElementById("chat-panel");
+    const chatStatus = document.getElementById("chat-status");
+    const chatCompose = document.getElementById("chat-compose");
+    const chatLog = document.getElementById("chat-log");
+    const connectButton = document.getElementById("connect");
+    const sendButton = document.getElementById("send");
+
     document.getElementById("enter").addEventListener("click", () => {
-      notice.classList.add("show");
-      notice.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+      chatPanel.classList.add("open");
+      chatPanel.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    });
+
+    connectButton.addEventListener("click", async () => {
+      const candidate = document.getElementById("access-token").value;
+      if (!candidate) { chatStatus.textContent = "Enter your private access code."; return; }
+      connectButton.disabled = true;
+      chatStatus.textContent = "Checking secure connection...";
+      try {
+        const health = await fetch("/api/health", { cache: "no-store" });
+        if (!health.ok) throw new Error("Shady's server is not available yet.");
+        const info = await health.json();
+        if (!info.model_configured) throw new Error("The AI model has not been configured on the server yet.");
+        accessToken = candidate;
+        chatCompose.classList.add("ready");
+        document.getElementById("auth-row").style.display = "none";
+        chatStatus.textContent = "Connected. Shady is listening.";
+        document.getElementById("chat-message").focus();
+      } catch (error) {
+        accessToken = "";
+        chatStatus.textContent = error.message || "Could not connect.";
+      } finally {
+        connectButton.disabled = false;
+      }
+    });
+
+    function addBubble(role, content) {
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + role;
+      bubble.textContent = content;
+      chatLog.appendChild(bubble);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    document.getElementById("chat-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const field = document.getElementById("chat-message");
+      const message = field.value.trim();
+      if (!message || !accessToken) return;
+      field.value = "";
+      addBubble("user", message);
+      sendButton.disabled = true;
+      chatStatus.textContent = "Shady is thinking...";
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + accessToken },
+          body: JSON.stringify({ message, session_id: sessionId })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          if (response.status === 401) {
+            accessToken = "";
+            chatCompose.classList.remove("ready");
+            document.getElementById("auth-row").style.display = "flex";
+          }
+          throw new Error(data.error || "The message could not be sent.");
+        }
+        addBubble("assistant", data.reply);
+        chatStatus.textContent = "Connected. Shady is listening.";
+      } catch (error) {
+        chatStatus.textContent = error.message || "Connection error.";
+      } finally {
+        sendButton.disabled = false;
+        field.focus();
+      }
     });
     document.getElementById("share").addEventListener("click", async () => {
       const url = window.location.href;
