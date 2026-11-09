@@ -18,7 +18,7 @@ from .tools import ToolDefinition, ToolExecutor, ToolRegistry
 __all__ = [
     "ActionRisk", "ApprovalRequired", "ApprovalStore", "AuditLog",
     "ConversationService", "Memory", "MemoryStore", "Message",
-    "ModelProvider", "ModelRouter", "PermissionGate", "PlannedStep",
+    "ModelProvider", "ModelRouter", "OpenAICompatibleProvider", "build_router_from_env", "PermissionGate", "PlannedStep",
     "SHADY_IDENTITY", "ShadyEngine", "StepStatus", "Task", "TaskCoordinator",
     "TaskPlan", "TaskPlanner", "TaskPlanningError", "TaskProgress", "TaskStatus", "TaskStep", "TaskStore", "ToolDefinition",
     "ToolExecutor", "ToolRegistry",
