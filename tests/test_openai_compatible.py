@@ -74,5 +74,5 @@ def test_environment_factory_builds_router_without_network():
         "SHADY_MODEL": "test-model",
         "SHADY_API_BASE_URL": "https://compatible.example/v1",
     }, transport=lambda *args: b'{"choices":[{"message":{"content":"ready"}}]}')
-    assert router.available_models == ["primary"]
+    assert router.available_models == ["groq"]
     assert router.complete(system_prompt="system", messages=[]) == "ready"
