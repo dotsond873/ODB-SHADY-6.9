@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hmac
+import logging
+import re
 import uuid
 from typing import Any
 
@@ -9,6 +11,9 @@ from .conversation import ConversationService
 from .memory import MemoryStore
 from .provider_config import build_router_from_env
 from .providers import ModelRouter
+
+
+logger = logging.getLogger(__name__)
 
 
 class ShadyAPI:
@@ -68,8 +73,16 @@ class ShadyAPI:
         )
         try:
             answer = service.reply(message, preferred_model=preferred)
-        except Exception:
-            # Provider exceptions can contain implementation details. Keep the
-            # public response generic; detailed diagnostics belong in protected logs.
+        except Exception as exc:
+            # Log only a bounded, redacted diagnostic. Never log the access token,
+            # API key, request body, or conversation content.
+            detail = str(exc)
+            detail = re.sub(r"(?i)(bearer\\s+)[^\\s\"']+", r"\\1[REDACTED]", detail)
+            detail = re.sub(r"\\b(?:gsk_|sk-)[A-Za-z0-9_-]{8,}\\b", "[REDACTED]", detail)
+            logger.error(
+                "Shady chat provider failure (%s): %s",
+                type(exc).__name__,
+                detail[:500],
+            )
             return 502, {"error": "Shady could not reach a working model. Try again shortly."}
         return 200, {"reply": answer, "session_id": session_id}
