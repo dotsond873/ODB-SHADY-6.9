@@ -77,8 +77,8 @@ class ShadyAPI:
             # Log only a bounded, redacted diagnostic. Never log the access token,
             # API key, request body, or conversation content.
             detail = str(exc)
-            detail = re.sub(r"(?i)(bearer\\s+)[^\\s\"']+", r"\\1[REDACTED]", detail)
-            detail = re.sub(r"\\b(?:gsk_|sk-)[A-Za-z0-9_-]{8,}\\b", "[REDACTED]", detail)
+            detail = re.sub(r"(?i)(bearer\s+)[^\s\"']+", r"\1[REDACTED]", detail)
+            detail = re.sub(r"\b(?:gsk_|sk-)[A-Za-z0-9_-]{8,}\b", "[REDACTED]", detail)
             logger.error(
                 "Shady chat provider failure (%s): %s",
                 type(exc).__name__,
