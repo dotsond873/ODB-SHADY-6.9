@@ -72,6 +72,9 @@ class OpenAICompatibleProvider:
                 f"{self.base_url}/chat/completions", headers, payload, self.timeout
             )
         except HTTPError as exc:
+            logging.warning(
+                "Model provider returned HTTP %s", exc.code
+            )
             raise RuntimeError(f"Model provider returned HTTP {exc.code}.") from None
         except URLError as exc:
             reason = getattr(exc, "reason", None)
