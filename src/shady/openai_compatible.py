@@ -66,16 +66,36 @@ class OpenAICompatibleProvider:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": "ODB-SHADY/6.9",
         }
         try:
             raw = self._transport(
                 f"{self.base_url}/chat/completions", headers, payload, self.timeout
             )
         except HTTPError as exc:
+            detail = "Error response unavailable"
+            try:
+                error_data = json.loads(exc.read(16384))
+                error = error_data.get("error", {})
+                if isinstance(error, dict):
+                    detail = json.dumps({
+                        field: error.get(field)
+                        for field in ("code", "type", "message")
+                    })
+                # Redact credentials and any echoed conversation text.
+                for sensitive in [self._api_key, system_prompt] + [
+                    item["content"] for item in messages
+                ]:
+                    if sensitive:
+                        detail = detail.replace(sensitive, "[redacted]")
+                        detail = detail.replace(
+                            json.dumps(sensitive)[1:-1], "[redacted]"
+                        )
+            except (OSError, ValueError, AttributeError, TypeError):
+                pass
             logging.warning(
-                "Model provider returned HTTP %s; content type: %s",
-                exc.code,
-                (exc.headers or {}).get("Content-Type", "unknown"),
+                "Model provider %s returned HTTP %s; detail: %s",
+                self.name, exc.code, detail[:2000],
             )
             raise RuntimeError(f"Model provider returned HTTP {exc.code}.") from None
         except URLError as exc:
