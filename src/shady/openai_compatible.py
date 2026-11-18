@@ -73,7 +73,9 @@ class OpenAICompatibleProvider:
             )
         except HTTPError as exc:
             logging.warning(
-                "Model provider returned HTTP %s", exc.code
+                "Model provider returned HTTP %s; content type: %s",
+                exc.code,
+                (exc.headers or {}).get("Content-Type", "unknown"),
             )
             raise RuntimeError(f"Model provider returned HTTP {exc.code}.") from None
         except URLError as exc:
