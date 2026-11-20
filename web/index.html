@@ -100,9 +100,10 @@
     }
     @media(max-width:650px) {
       nav { padding:24px; }
-      .art { top:70px; height:55%; object-position:center; }
+      /* Show the entire landing artwork on narrow screens instead of cropping it. */
+      .art { top:72px; bottom:auto; height:auto; aspect-ratio:auto; object-fit:contain; object-position:center top; }
+      .copy { margin:auto 0 0; padding:clamp(300px,76vw,520px) 24px 40px; }
       .shade { background:linear-gradient(0deg,#080d10 28%,rgba(8,13,16,.78) 55%,rgba(8,13,16,.08) 100%); }
-      .copy { margin:auto 0 0; padding:calc(48vh - 15px) 24px 40px; }
       h1 { font-size:52px; letter-spacing:-2.5px; }
       .eyebrow { margin-bottom:20px; }
       .intro { font-size:15px; }
