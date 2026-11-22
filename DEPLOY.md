@@ -48,3 +48,9 @@ The chat API requires the owner bearer token. Use the HTTPS URL supplied by Rend
 ## Health check
 
 Render checks `/api/health`. The endpoint reports service health and whether a model provider was configured; it never returns credentials.
+
+### Pictures and collaborator access
+
+In the Render web service environment, set `OPENAI_API_KEY` to an OpenAI API key with image-model access and billing. Picture creation and edits use OpenAI's Images API with `gpt-image-2`. Text chat continues to use the existing Groq configuration. Photo edits send the selected photo and instructions to OpenAI. Picture results can be downloaded in the chat.
+
+To give Beth her own access, set `SHADY_BETH_ACCESS_TOKEN` to a unique private code of at least 32 characters. Save and deploy. Both codes open the same chat and picture tools. Each tab starts a separate conversation.

@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from shady.images import EDIT_BODY_LIMIT, make_picture
 from shady.web_api import ShadyAPI
 
 
@@ -43,8 +44,18 @@ def make_handler(api: ShadyAPI):
             self._headers(status, "application/json; charset=utf-8")
             self.wfile.write(body)
 
+        def _token(self):
+            authorization = self.headers.get("Authorization", "")
+            return authorization[7:] if authorization.startswith("Bearer ") else None
+
         def do_GET(self) -> None:
             path = urlparse(self.path).path
+            if path == "/api/session":
+                if api.authorized(self._token()):
+                    self._json(200, {"authenticated": True})
+                else:
+                    self._json(401, {"error": "Check your private access code."})
+                return
             if path == "/api/health":
                 self._json(200, api.health())
                 return
@@ -66,8 +77,13 @@ def make_handler(api: ShadyAPI):
             self.wfile.write(target.read_bytes())
 
         def do_POST(self) -> None:
-            if urlparse(self.path).path != "/api/chat":
+            path = urlparse(self.path).path
+            if path not in ("/api/chat", "/api/images/create", "/api/images/edit"):
                 self._json(404, {"error": "Not found."})
+                return
+            supplied = self._token()
+            if not api.authorized(supplied):
+                self._json(401, {"error": "Check your private access code."})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
                 self._json(415, {"error": "Use application/json."})
@@ -77,7 +93,7 @@ def make_handler(api: ShadyAPI):
             except ValueError:
                 self._json(400, {"error": "Invalid content length."})
                 return
-            if length < 1 or length > MAX_BODY:
+            if length < 1 or length > (EDIT_BODY_LIMIT if path == "/api/images/edit" else MAX_BODY if path == "/api/chat" else 65536):
                 self._json(413, {"error": "Request body is empty or too large."})
                 return
             try:
@@ -85,9 +101,10 @@ def make_handler(api: ShadyAPI):
             except (UnicodeDecodeError, json.JSONDecodeError):
                 self._json(400, {"error": "Request body must be valid JSON."})
                 return
-            authorization = self.headers.get("Authorization", "")
-            supplied = authorization[7:] if authorization.startswith("Bearer ") else None
-            status, response = api.chat(supplied, payload)
+            if path == "/api/chat":
+                status, response = api.chat(supplied, payload)
+            else:
+                status, response = make_picture(payload, edit=path == "/api/images/edit")
             self._json(status, response)
 
         def log_message(self, fmt: str, *args) -> None:
@@ -99,7 +116,7 @@ def make_handler(api: ShadyAPI):
 
 def main() -> None:
     token = os.environ.get("SHADY_ACCESS_TOKEN", "")
-    api = ShadyAPI(access_token=token)
+    api = ShadyAPI(access_token=token, collaborator_token=os.getenv("SHADY_BETH_ACCESS_TOKEN", ""))
     port = int(os.environ.get("PORT", "8000"))
     server = ThreadingHTTPServer(("0.0.0.0", port), make_handler(api))
     print(f"ODB SHADY 6.9 listening on port {port}")

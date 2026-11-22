@@ -18,18 +18,21 @@ class ShadyAPI:
         self,
         *,
         access_token: str,
+        collaborator_token: str = "",
         router: ModelRouter | None = None,
         memory: MemoryStore | None = None,
     ) -> None:
         if len(access_token) < 32:
             raise ValueError("SHADY_ACCESS_TOKEN must be at least 32 characters.")
-        self._access_token = access_token
+        if collaborator_token and len(collaborator_token) < 32:
+            raise ValueError("SHADY_BETH_ACCESS_TOKEN must be at least 32 characters.")
+        self._tokens = tuple(token.encode() for token in (access_token, collaborator_token) if token)
         self.router = router or build_router_from_env()
         self.memory = memory or MemoryStore()
 
-    def _authorized(self, supplied_token: str | None) -> bool:
-        return isinstance(supplied_token, str) and hmac.compare_digest(
-            supplied_token, self._access_token
+    def authorized(self, supplied_token: str | None) -> bool:
+        return isinstance(supplied_token, str) and any(
+            hmac.compare_digest(supplied_token.encode(), token) for token in self._tokens
         )
 
     def health(self) -> dict[str, Any]:
@@ -40,7 +43,7 @@ class ShadyAPI:
         }
 
     def chat(self, supplied_token: str | None, payload: Any) -> tuple[int, dict[str, Any]]:
-        if not self._authorized(supplied_token):
+        if not self.authorized(supplied_token):
             return 401, {"error": "Authentication required."}
         if not isinstance(payload, dict):
             return 400, {"error": "Request body must be a JSON object."}
