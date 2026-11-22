@@ -60,3 +60,21 @@ def test_picture_routes(service, monkeypatch, action, code):
     assert result.json()["image"] == "data:image/png;base64," + encoded
     monkeypatch.delenv("OPENAI_API_KEY")
     assert client.post(route, json={"prompt": "sample"}).status_code == 503
+
+
+def test_session_survives_requests_without_resending_code(service, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    for code in ("a"*32, "b"*32):
+        login = requests.post(service + "/api/login", headers={"Authorization": "Bearer " + code})
+        assert login.status_code == 200
+        cookie = login.headers["Set-Cookie"]
+        assert "HttpOnly" in cookie and "Secure" in cookie and code not in cookie
+        headers = {"Cookie": cookie.split(";")[0]}
+        assert requests.get(service + "/api/session", headers=headers).ok
+        for action in ("create", "edit"):
+            assert requests.post(service + "/api/images/" + action, headers=headers, json={}).status_code == 503
+        assert requests.get(service + "/api/session", headers=headers).ok
+        assert requests.post(service + "/api/chat", headers=headers, json={}).status_code == 400
+        assert requests.get(service + "/api/session", headers={"Cookie": headers["Cookie"] + "x"}).status_code == 401
+        assert "Max-Age=0" in requests.post(service + "/api/logout", headers=headers).headers["Set-Cookie"]
+    assert requests.post(service + "/api/login").status_code == 401

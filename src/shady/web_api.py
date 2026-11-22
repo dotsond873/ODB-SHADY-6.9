@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hmac
+import secrets
+import time
 import uuid
 from typing import Any
 
@@ -30,10 +32,31 @@ class ShadyAPI:
         self.router = router or build_router_from_env()
         self.memory = memory or MemoryStore()
 
+    SESSION_SECONDS = 7 * 24 * 3600
+
+    def start_session(self, code: str | None) -> str | None:
+        if not isinstance(code, str):
+            return None
+        for key in self._tokens:
+            if hmac.compare_digest(code.encode(), key):
+                stamp = f"s1.{int(time.time()) + self.SESSION_SECONDS}.{secrets.token_hex(16)}"
+                signature = hmac.digest(key, stamp.encode(), "sha256").hex()
+                return f"{stamp}.{signature}"
+        return None
+
     def authorized(self, supplied_token: str | None) -> bool:
-        return isinstance(supplied_token, str) and any(
-            hmac.compare_digest(supplied_token.encode(), token) for token in self._tokens
-        )
+        if not isinstance(supplied_token, str):
+            return False
+        if any(hmac.compare_digest(supplied_token.encode(), key) for key in self._tokens):
+            return True
+        parts = supplied_token.split(".")
+        if len(parts) != 4 or parts[0] != "s1" or not parts[1].isascii() or not parts[1].isdigit() or len(parts[1]) > 12:
+            return False
+        if int(parts[1]) <= time.time():
+            return False
+        stamp = ".".join(parts[:3]).encode()
+        return any(hmac.compare_digest(parts[3].encode(), hmac.digest(key, stamp, "sha256").hex().encode())
+                   for key in self._tokens)
 
     def health(self) -> dict[str, Any]:
         return {

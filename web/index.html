@@ -139,15 +139,16 @@
 
     <section class="chat-panel" id="chat-panel" aria-label="Shady chat">
       <h2>Talk to Shady</h2>
-      <p class="chat-help">Enter your private access code to unlock chat and picture tools. Your code stays in this browser tab and is not saved to storage.</p>
-      <div class="auth-row" id="auth-row">
+      <p class="chat-help">Enter your private access code to unlock chat and picture tools. Sign in once on this device for up to seven days.</p>
+      <form class="auth-row" id="auth-row">
         <input id="access-token" type="password" autocomplete="current-password" placeholder="Private access code" aria-label="Private access code">
-        <button id="connect" type="button">Connect</button>
-      </div>
+        <button id="connect" type="submit">Sign in</button>
+      </form>
       <p class="chat-status" id="chat-status" role="status" aria-live="polite">Waiting for secure connection.</p>
       <div class="chat-compose" id="chat-compose">
         <div class="chat-log" id="chat-log" aria-live="polite"></div>
         <div class="picture-tools">
+          <button id="logout" type="button" class="share">Sign out</button>
           <label for="mode">Mode</label>
           <select id="mode"><option value="chat">Chat</option><option value="create">Create a picture</option><option value="edit">Edit a photo</option></select>
           <input id="photo" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Photo to edit (JPEG, PNG or WebP, up to 10 MB)" hidden>
@@ -162,7 +163,7 @@
   </main>
   <script>
 
-    let accessToken = "";
+    let signedIn = false;
     const sessionId = crypto.randomUUID();
     const chatPanel = document.getElementById("chat-panel");
     const chatStatus = document.getElementById("chat-status");
@@ -176,25 +177,44 @@
       chatPanel.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     });
 
-    connectButton.addEventListener("click", async () => {
-      const candidate = document.getElementById("access-token").value;
-      if (!candidate) { chatStatus.textContent = "Enter your private access code."; return; }
+    const authRow = document.getElementById("auth-row");
+    const codeField = document.getElementById("access-token");
+    function showSession(active) {
+      signedIn = active;
+      chatCompose.classList.toggle("ready", active);
+      authRow.style.display = active ? "none" : "flex";
+      chatStatus.textContent = active ? "Connected. Shady is listening." : "Enter your private access code.";
+    }
+
+    const restore = fetch("/api/session", {cache: "no-store"})
+      .then(response => { if (response.ok) showSession(true); })
+      .catch(() => {});
+
+    authRow.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!codeField.value || connectButton.disabled) return;
       connectButton.disabled = true;
-      chatStatus.textContent = "Checking secure connection...";
       try {
-        const check = await fetch("/api/session", {cache: "no-store", headers: {Authorization: "Bearer " + candidate}});
+        await restore;
+        const check = await fetch("/api/login", {method: "POST", headers: {Authorization: "Bearer " + codeField.value}});
         if (check.status === 401) throw new Error("Check your private access code.");
         if (!check.ok) throw new Error("Shady's server is unavailable.");
-        accessToken = candidate;
-        chatCompose.classList.add("ready");
-        document.getElementById("auth-row").style.display = "none";
-        chatStatus.textContent = "Connected. Shady is listening.";
-        document.getElementById("chat-message").focus();
+        codeField.value = "";
+        showSession(true);
       } catch (error) {
-        accessToken = "";
         chatStatus.textContent = error.message || "Could not connect.";
       } finally {
         connectButton.disabled = false;
+      }
+    });
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      try {
+        const response = await fetch("/api/logout", {method: "POST"});
+        if (!response.ok) throw new Error();
+        location.reload();
+      } catch {
+        chatStatus.textContent = "Sign-out failed. Please try again.";
       }
     });
 
@@ -229,14 +249,14 @@
       event.preventDefault();
       const field = document.getElementById("chat-message");
       const message = field.value.trim();
-      if (!message || !accessToken || sendButton.disabled) return;
+      if (!message || !signedIn || sendButton.disabled) return;
       const action = mode.value;
       const file = photo.files[0];
       if (action === "edit" && (!file || file.size > 10 * 1024 * 1024)) {
         chatStatus.textContent = "Choose a JPEG, PNG or WebP photo up to 10 MB.";
         return;
       }
-      sendButton.disabled = mode.disabled = photo.disabled = field.disabled = true;
+      sendButton.disabled = mode.disabled = photo.disabled = true;
       chatStatus.textContent = action === "chat" ? "Shady is thinking..." : "Working on your picture...";
       try {
         const payload = action === "chat" ? {message, session_id: sessionId} : {prompt: message};
@@ -244,19 +264,17 @@
         const endpoint = action === "chat" ? "/api/chat" : "/api/images/" + action;
         const response = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + accessToken },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
         const data = await response.json();
         if (!response.ok) {
           if (response.status === 401) {
-            accessToken = "";
-            chatCompose.classList.remove("ready");
-            document.getElementById("auth-row").style.display = "flex";
+            showSession(false);
           }
           throw new Error(data.error || "The message could not be sent.");
         }
-        field.value = "";
+        if (field.value.trim() === message) field.value = "";
         addBubble("user", message);
         if (action === "chat") {
           addBubble("assistant", data.reply);
@@ -276,8 +294,8 @@
       } catch (error) {
         chatStatus.textContent = error.message || "Connection error.";
       } finally {
-        sendButton.disabled = mode.disabled = photo.disabled = field.disabled = false;
-        field.focus();
+        sendButton.disabled = mode.disabled = photo.disabled = false;
+
       }
     });
     document.getElementById("share").addEventListener("click", async () => {

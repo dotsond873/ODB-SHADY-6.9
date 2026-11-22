@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -24,7 +25,7 @@ def make_handler(api: ShadyAPI):
     class Handler(BaseHTTPRequestHandler):
         server_version = "ShadyWeb/1.0"
 
-        def _headers(self, status: int, content_type: str, *, cache: str = "no-store") -> None:
+        def _headers(self, status: int, content_type: str, *, cache: str = "no-store", cookie=None) -> None:
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("X-Content-Type-Options", "nosniff")
@@ -37,16 +38,30 @@ def make_handler(api: ShadyAPI):
                 "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'self'",
             )
+            if cookie is not None:
+                self.send_header("Set-Cookie", cookie)
             self.end_headers()
 
-        def _json(self, status: int, payload: dict) -> None:
+        def _json(self, status: int, payload: dict, *, cookie=None) -> None:
             body = json.dumps(payload).encode("utf-8")
-            self._headers(status, "application/json; charset=utf-8")
+            self._headers(status, "application/json; charset=utf-8", cookie=cookie)
             self.wfile.write(body)
 
-        def _token(self):
+        def _bearer(self):
             authorization = self.headers.get("Authorization", "")
             return authorization[7:] if authorization.startswith("Bearer ") else None
+
+        def _token(self):
+            bearer = self._bearer()
+            if bearer is not None:
+                return bearer
+            cookies = SimpleCookie()
+            try:
+                cookies.load(self.headers.get("Cookie", ""))
+            except CookieError:
+                return None
+            session = cookies.get("__Host-shady")
+            return session.value if session else None
 
         def do_GET(self) -> None:
             path = urlparse(self.path).path
@@ -78,6 +93,17 @@ def make_handler(api: ShadyAPI):
 
         def do_POST(self) -> None:
             path = urlparse(self.path).path
+            if path == "/api/login":
+                session = api.start_session(self._bearer())
+                if session is None:
+                    self._json(401, {"error": "Check your private access code."})
+                else:
+                    cookie = f"__Host-shady={session}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age={api.SESSION_SECONDS}"
+                    self._json(200, {"authenticated": True}, cookie=cookie)
+                return
+            if path == "/api/logout":
+                self._json(200, {}, cookie="__Host-shady=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
+                return
             if path not in ("/api/chat", "/api/images/create", "/api/images/edit"):
                 self._json(404, {"error": "Not found."})
                 return
