@@ -27,7 +27,54 @@ def photo_file(encoded):
     raise ValueError("Choose a JPEG, PNG, or WebP photo.")
 
 
+def gemini_picture(payload, *, edit, key):
+    prompt = payload.get("prompt") if isinstance(payload, dict) else None
+    if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 6000:
+        return 400, {"error": "Enter picture instructions of up to 6000 characters."}
+    parts = [{"text": prompt.strip()}]
+    if edit:
+        try:
+            _, raw, mime = photo_file(payload.get("photo"))
+        except ValueError as exc:
+            return 400, {"error": str(exc)}
+        parts.append({"inlineData": {"mimeType": mime, "data": base64.b64encode(raw).decode("ascii")}})
+    model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image").strip()
+    if not model or not all(c.isalnum() or c in "-_." for c in model):
+        return 503, {"error": "Check GEMINI_IMAGE_MODEL in Render."}
+    try:
+        response = requests.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
+            headers={"x-goog-api-key": key},
+            json={"contents": [{"parts": parts}], "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]}},
+            timeout=(10, 240))
+        if response.status_code in (401, 403, 404):
+            return 502, {"error": "Check Gemini API key and image model access in Render."}
+        if response.status_code == 429:
+            return 429, {"error": "Gemini reached a quota or billing limit."}
+        if response.status_code == 400:
+            return 400, {"error": "Gemini declined the picture request."}
+        response.raise_for_status()
+        for candidate in response.json().get("candidates", []):
+            for part in candidate.get("content", {}).get("parts", []):
+                data = part.get("inlineData") or part.get("inline_data") or {}
+                mime = data.get("mimeType") or data.get("mime_type")
+                encoded = data.get("data")
+                if mime in ("image/png", "image/jpeg", "image/webp") and isinstance(encoded, str):
+                    _, _, actual = photo_file(encoded)
+                    if actual == mime:
+                        return 200, {"image": "data:" + mime + ";base64," + encoded}
+    except requests.Timeout:
+        return 504, {"error": "Gemini took too long to return the picture."}
+    except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError):
+        pass
+    return 502, {"error": "Gemini could not deliver a picture. Try again shortly."}
+
+
 def make_picture(payload, *, edit):
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if gemini_key:
+        return gemini_picture(payload, edit=edit, key=gemini_key)
+
     key = os.getenv("OPENAI_API_KEY", "").strip()
     if not key:
         return 503, {"error": "Picture setup requires OPENAI_API_KEY in Render."}
