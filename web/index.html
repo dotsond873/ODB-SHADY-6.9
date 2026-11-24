@@ -290,7 +290,7 @@
           save.textContent = "Save picture";
           bubble.append(picture, save);
         }
-        chatStatus.textContent = "Connected. Shady is listening.";
+        chatStatus.textContent = "Connected. Shady is listening." + (action === "chat" && data.provider ? " Provider: " + data.provider + "." : "");
       } catch (error) {
         chatStatus.textContent = error.message || "Connection error.";
       } finally {
