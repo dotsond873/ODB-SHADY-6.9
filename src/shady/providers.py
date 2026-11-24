@@ -55,7 +55,7 @@ class ModelRouter:
                 )
                 if not isinstance(answer, str) or not answer.strip():
                     raise RuntimeError("Provider returned an empty response.")
-                logging.info("Shady chat provider succeeded: %s", provider.name)
+                logging.warning("Shady chat provider succeeded: %s", provider.name)
                 return answer.strip()
             except Exception as exc:
                 logging.warning("Shady chat provider failed: %s (%s)", provider.name, type(exc).__name__)
