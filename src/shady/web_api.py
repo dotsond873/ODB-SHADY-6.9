@@ -93,9 +93,9 @@ class ShadyAPI:
             self.router, self.memory, session_id=session_id
         )
         try:
-            answer = service.reply(message, preferred_model=preferred)
+            answer, provider = service.reply_with_provider(message, preferred_model=preferred)
         except Exception:
             # Provider exceptions can contain implementation details. Keep the
             # public response generic; detailed diagnostics belong in protected logs.
             return 502, {"error": "Shady could not reach a working model. Try again shortly."}
-        return 200, {"reply": answer, "session_id": session_id}
+        return 200, {"reply": answer, "session_id": session_id, "provider": provider}
