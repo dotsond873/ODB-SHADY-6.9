@@ -27,6 +27,10 @@ class ConversationService:
         self.history_limit = history_limit
 
     def reply(self, message: str, *, preferred_model: str | None = None) -> str:
+        answer, _ = self.reply_with_provider(message, preferred_model=preferred_model)
+        return answer
+
+    def reply_with_provider(self, message: str, *, preferred_model: str | None = None) -> tuple[str, str]:
         prompt = message.strip()
         if not prompt:
             raise ValueError("Message cannot be empty.")
@@ -50,11 +54,11 @@ class ConversationService:
 
         # Save only after a successful model response so failed calls do not
         # leave an incomplete user/assistant exchange in the history.
-        answer = self.router.complete(
+        answer, provider = self.router.complete_with_provider(
             system_prompt=system_prompt,
             messages=messages,
             preferred=preferred_model,
         )
         self.memory.add_message(self.session_id, "user", prompt)
         self.memory.add_message(self.session_id, "assistant", answer)
-        return answer
+        return answer, provider
