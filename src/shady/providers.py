@@ -1,6 +1,7 @@
 """Provider contracts and deterministic multi-model routing."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
@@ -54,8 +55,10 @@ class ModelRouter:
                 )
                 if not isinstance(answer, str) or not answer.strip():
                     raise RuntimeError("Provider returned an empty response.")
+                logging.info("Shady chat provider succeeded: %s", provider.name)
                 return answer.strip()
             except Exception as exc:
+                logging.warning("Shady chat provider failed: %s (%s)", provider.name, type(exc).__name__)
                 failures.append(f"{provider.name}: {type(exc).__name__}: {exc}")
 
         raise RuntimeError(
