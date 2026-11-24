@@ -39,6 +39,13 @@ class ModelRouter:
         messages: list[dict[str, str]],
         preferred: str | None = None,
     ) -> str:
+        answer, _ = self.complete_with_provider(system_prompt=system_prompt, messages=messages, preferred=preferred)
+        return answer
+
+    def complete_with_provider(
+        self, *, system_prompt: str, messages: list[dict[str, str]], preferred: str | None = None
+    ) -> tuple[str, str]:
+        """Return the answer and the provider that actually completed it."""
         ordered = list(self.providers)
         if preferred:
             selected = [provider for provider in ordered if provider.name == preferred]
@@ -56,7 +63,7 @@ class ModelRouter:
                 if not isinstance(answer, str) or not answer.strip():
                     raise RuntimeError("Provider returned an empty response.")
                 logging.warning("Shady chat provider succeeded: %s", provider.name)
-                return answer.strip()
+                return answer.strip(), provider.name
             except Exception as exc:
                 logging.warning("Shady chat provider failed: %s (%s)", provider.name, type(exc).__name__)
                 failures.append(f"{provider.name}: {type(exc).__name__}: {exc}")
