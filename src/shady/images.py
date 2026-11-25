@@ -71,6 +71,10 @@ def gemini_picture(payload, *, edit, key):
 
 
 def make_picture(payload, *, edit):
+    if os.getenv("SHADY_IMAGE_PROVIDER", "").strip().lower() == "local_dream":
+        from .local_dream import picture
+        return picture(payload, edit=edit)
+
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     if gemini_key:
         return gemini_picture(payload, edit=edit, key=gemini_key)
