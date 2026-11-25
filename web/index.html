@@ -161,7 +161,13 @@
           <div id="mask-editor" hidden>
             <p class="chat-help">Paint over the area to change. Unpainted pixels stay original.</p>
             <canvas id="mask-canvas" style="width:100%;height:auto;touch-action:none;border:1px solid #64777d"></canvas>
+            <div class="picture-tools">
+            <label for="mask-brush">Tool</label>
+            <select id="mask-brush"><option value="paint">Paint</option><option value="erase">Eraser</option></select>
+            <label for="brush-size">Brush size</label>
+            <input id="brush-size" type="range" min="1" max="15" value="5" aria-label="Brush size">
             <button type="button" class="share" id="clear-mask">Clear selection</button>
+            </div>
           </div>
         </div>
         <form class="chat-row" id="chat-form">
@@ -267,15 +273,16 @@
     function paint(event) {
       const rect = canvas.getBoundingClientRect();
       const p = [(event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height];
+      maskCtx.globalCompositeOperation = document.getElementById("mask-brush").value === "erase" ? "destination-out" : "source-over";
       maskCtx.strokeStyle = maskCtx.fillStyle = "#fff";
-      maskCtx.lineWidth = Math.max(8, canvas.width*.045);
+      maskCtx.lineWidth = Math.max(2, canvas.width * Number(document.getElementById("brush-size").value) / 100);
       maskCtx.lineCap = "round";
       maskCtx.beginPath();
       maskCtx.moveTo(...(previous || p));
       maskCtx.lineTo(p[0]+.01,p[1]);
       maskCtx.stroke();
       previous = p;
-      painted = true;
+      painted = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data.some((v,i) => i % 4 === 3 && v >= 128);
       redrawMask();
       updateSend();
     }
