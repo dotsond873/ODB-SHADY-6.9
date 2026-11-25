@@ -24,13 +24,28 @@ def picture(payload, *, edit):
     except (KeyError, ValueError):
         return 503, {"error": "Configure the private Local Dream host."}
     fields = {"prompt": prompt.strip(), "steps": 20, "cfg": 7, "size": 512, "scheduler": "dpm"}
+    original = mask = None
     if edit:
         try:
             _, raw, mime = photo_file(payload.get("photo"))
             if mime == "image/webp":
                 return 400, {"error": "Use PNG or JPEG for local editing."}
+            if payload.get("mask"):
+                from PIL import ImageOps
+                original = ImageOps.exif_transpose(Image.open(io.BytesIO(raw))).convert("RGB")
+                if original.width * original.height > 12000000:
+                    return 400, {"error": "Use a photo under 12 megapixels for selective editing."}
+                mask_raw = base64.b64decode(payload["mask"], validate=True)
+                if len(mask_raw) > 2000000:
+                    raise ValueError("Mask too large.")
+                mask = Image.open(io.BytesIO(mask_raw)).convert("L")
+                if mask.width * mask.height > 4000000:
+                    raise ValueError("Mask dimensions too large.")
+                mask = mask.resize(original.size, Image.Resampling.NEAREST).point(lambda p: 255 if p >= 128 else 0)
+                if not mask.getbbox():
+                    raise ValueError("Select the area to edit.")
             fields.update(image=base64.b64encode(raw).decode("ascii"), denoise_strength=0.6)
-        except ValueError as exc:
+        except (ValueError, OSError, TypeError) as exc:
             return 400, {"error": str(exc)}
     if not _lock.acquire(blocking=False):
         return 503, {"error": "Local Dream is busy. Try again shortly."}
@@ -56,7 +71,10 @@ def picture(payload, *, edit):
                     if len(raw) != w*h*3:
                         raise ValueError("Invalid image")
                     output = io.BytesIO()
-                    Image.frombytes("RGB", (w,h), raw).save(output, format="PNG")
+                    generated = Image.frombytes("RGB", (w,h), raw)
+                    if mask is not None:
+                        generated = Image.composite(generated.resize(original.size, Image.Resampling.LANCZOS), original, mask)
+                    generated.save(output, format="PNG")
                     return 200, {"image": "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")}
     except requests.Timeout:
         return 504, {"error": "Local Dream timed out."}
