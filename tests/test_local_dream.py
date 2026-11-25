@@ -43,6 +43,9 @@ def test_mask_preserves_original_pixels(monkeypatch):
         response.iter_lines.return_value = [b"data: " + json.dumps(event).encode()]
         status, result = picture({"prompt": "beach", "photo": encode(original), "mask": encode(mask)}, edit=True)
         assert status == 200, result
+        fields = factory.return_value.__enter__.return_value.post.call_args.kwargs["json"]
+        sent_mask = Image.open(io.BytesIO(base64.b64decode(fields["mask"])))
+        assert list(sent_mask.getdata()) == [0, 255]
         output = Image.open(io.BytesIO(base64.b64decode(result["image"].split(",")[1])))
         assert output.getpixel((0, 0)) == (255, 0, 0)
         assert output.getpixel((1, 0)) == (0, 0, 255)
