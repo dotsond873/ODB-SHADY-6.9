@@ -44,6 +44,9 @@ def picture(payload, *, edit):
                 mask = mask.resize(original.size, Image.Resampling.NEAREST).point(lambda p: 255 if p >= 128 else 0)
                 if not mask.getbbox():
                     raise ValueError("Select the area to edit.")
+                mask_buffer = io.BytesIO()
+                mask.save(mask_buffer, format="PNG")
+                fields["mask"] = base64.b64encode(mask_buffer.getvalue()).decode("ascii")
             fields.update(image=base64.b64encode(raw).decode("ascii"), denoise_strength=0.6)
         except (ValueError, OSError, TypeError) as exc:
             return 400, {"error": str(exc)}
