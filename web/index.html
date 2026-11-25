@@ -95,6 +95,8 @@
     .picture-tools { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:12px; }
     .picture-tools select { color:var(--ink); background:var(--gunmetal); padding:9px; border-radius:6px; }
     .picture-tools input { max-width:100%; }
+    #photo-preview { display:block; max-width:100%; max-height:180px; object-fit:contain; border-radius:6px; }
+    #photo-preview[hidden] { display:none; }
     .bubble img { display:block; max-width:100%; height:auto; border-radius:5px; }
     .bubble a { display:inline-block; color:var(--mint); margin-top:8px; }
     .chat-compose { display:none; }
@@ -153,6 +155,7 @@
           <select id="mode"><option value="chat">Chat</option><option value="create">Create a picture</option><option value="edit">Edit a photo</option></select>
           <input id="photo" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Photo to edit (JPEG, PNG or WebP, up to 10 MB)" hidden>
         </div>
+        <img id="photo-preview" alt="Selected photo preview" hidden>
         <form class="chat-row" id="chat-form">
           <input id="chat-message" type="text" maxlength="6000" autocomplete="off" placeholder="Ask Shady something..." aria-label="Message to Shady" required>
           <button id="send" type="submit">Send</button>
@@ -229,21 +232,74 @@
 
     const mode = document.getElementById("mode");
     const photo = document.getElementById("photo");
+    const preview = document.getElementById("photo-preview");
+    let loadedPhoto = null;
+    let photoVersion = 0;
+    let busy = false;
+    function updateSend() {
+      sendButton.disabled = busy || (mode.value === "edit" && !loadedPhoto);
+      preview.hidden = mode.value !== "edit" || !loadedPhoto;
+    }
     mode.addEventListener("change", () => {
       photo.hidden = mode.value !== "edit";
       const labels = {chat: "Ask Shady something...", create: "Describe your picture...", edit: "Describe the changes to your photo..."};
       document.getElementById("chat-message").placeholder = labels[mode.value];
       sendButton.textContent = {chat: "Send", create: "Create picture", edit: "Edit photo"}[mode.value];
+      updateSend();
+      if (mode.value === "edit") chatStatus.textContent = loadedPhoto ? "Photo ready to edit." : "Choose a photo to edit.";
+      else if (signedIn) chatStatus.textContent = "Connected. Shady is listening.";
     });
 
-    function readPhoto(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(",")[1]);
-        reader.onerror = () => reject(new Error("Could not open that photo."));
-        reader.readAsDataURL(file);
-      });
+    async function readPhoto(file) {
+      try {
+        return await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(",")[1]);
+          reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
+          reader.onabort = () => reject(new Error("Photo read cancelled"));
+          reader.readAsDataURL(file);
+        });
+      } catch (firstError) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 8192) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        }
+        return btoa(binary);
+      }
     }
+
+    photo.addEventListener("change", async () => {
+      const version = ++photoVersion;
+      loadedPhoto = null;
+      preview.removeAttribute("src");
+      updateSend();
+      const file = photo.files[0];
+      if (!file || !file.size || file.size > 10 * 1024 * 1024) {
+        chatStatus.textContent = "Choose a nonempty JPEG, PNG or WebP photo up to 10 MB.";
+        return;
+      }
+      chatStatus.textContent = "Reading your photo...";
+      try {
+        const base64 = await readPhoto(file);
+        const mime = file.type || (/\.png$/i.test(file.name) ? "image/png" : /\.webp$/i.test(file.name) ? "image/webp" : "image/jpeg");
+        if (!["image/jpeg", "image/png", "image/webp"].includes(mime) || !base64) throw new Error("Unsupported or empty image");
+        const url = "data:" + mime + ";base64," + base64;
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        if (version !== photoVersion) return;
+        loadedPhoto = base64;
+        preview.src = url;
+        if (mode.value === "edit") chatStatus.textContent = "Photo ready to edit.";
+      } catch (error) {
+        if (version !== photoVersion) return;
+        photo.value = "";
+        if (mode.value === "edit") chatStatus.textContent = "Could not read photo (" + (error.name || "Error") + "). Save a local copy in Downloads and select it again.";
+      } finally {
+        if (version === photoVersion) updateSend();
+      }
+    });
 
     document.getElementById("chat-form").addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -251,16 +307,17 @@
       const message = field.value.trim();
       if (!message || !signedIn || sendButton.disabled) return;
       const action = mode.value;
-      const file = photo.files[0];
-      if (action === "edit" && (!file || file.size > 10 * 1024 * 1024)) {
+      if (action === "edit" && !loadedPhoto) {
         chatStatus.textContent = "Choose a JPEG, PNG or WebP photo up to 10 MB.";
         return;
       }
-      sendButton.disabled = mode.disabled = photo.disabled = true;
+      busy = true;
+      mode.disabled = photo.disabled = true;
+      updateSend();
       chatStatus.textContent = action === "chat" ? "Shady is thinking..." : "Working on your picture...";
       try {
         const payload = action === "chat" ? {message, session_id: sessionId} : {prompt: message};
-        if (action === "edit") payload.photo = await readPhoto(file);
+        if (action === "edit") payload.photo = loadedPhoto;
         const endpoint = action === "chat" ? "/api/chat" : "/api/images/" + action;
         const response = await fetch(endpoint, {
           method: "POST",
@@ -294,7 +351,9 @@
       } catch (error) {
         chatStatus.textContent = error.message || "Connection error.";
       } finally {
-        sendButton.disabled = mode.disabled = photo.disabled = false;
+        busy = false;
+        mode.disabled = photo.disabled = false;
+        updateSend();
 
       }
     });
