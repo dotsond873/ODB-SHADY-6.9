@@ -156,6 +156,14 @@
           <input id="photo" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Photo to edit (JPEG, PNG or WebP, up to 10 MB)" hidden>
         </div>
         <img id="photo-preview" alt="Selected photo preview" hidden>
+        <div id="mask-tools" hidden>
+          <label><input type="checkbox" id="selective"> Change selected area only</label>
+          <div id="mask-editor" hidden>
+            <p class="chat-help">Paint over the area to change. Unpainted pixels stay original.</p>
+            <canvas id="mask-canvas" style="width:100%;height:auto;touch-action:none;border:1px solid #64777d"></canvas>
+            <button type="button" class="share" id="clear-mask">Clear selection</button>
+          </div>
+        </div>
         <form class="chat-row" id="chat-form">
           <input id="chat-message" type="text" maxlength="6000" autocomplete="off" placeholder="Ask Shady something..." aria-label="Message to Shady" required>
           <button id="send" type="submit">Send</button>
@@ -233,12 +241,66 @@
     const mode = document.getElementById("mode");
     const photo = document.getElementById("photo");
     const preview = document.getElementById("photo-preview");
+    const selective = document.getElementById("selective");
+    const maskTools = document.getElementById("mask-tools");
+    const maskEditor = document.getElementById("mask-editor");
+    const canvas = document.getElementById("mask-canvas");
+    const ctx = canvas.getContext("2d");
+    const maskCanvas = document.createElement("canvas");
+    const maskCtx = maskCanvas.getContext("2d");
+    let sourceImage = null, painted = false, previous = null;
+    function redrawMask() {
+      if (!sourceImage) return;
+      ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.globalAlpha = .45;
+      ctx.drawImage(maskCanvas, 0, 0);
+      ctx.restore();
+    }
+    function resetMask() {
+      painted = false;
+      previous = null;
+      maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+      redrawMask();
+      updateSend();
+    }
+    function paint(event) {
+      const rect = canvas.getBoundingClientRect();
+      const p = [(event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height];
+      maskCtx.strokeStyle = maskCtx.fillStyle = "#fff";
+      maskCtx.lineWidth = Math.max(8, canvas.width*.045);
+      maskCtx.lineCap = "round";
+      maskCtx.beginPath();
+      maskCtx.moveTo(...(previous || p));
+      maskCtx.lineTo(p[0]+.01,p[1]);
+      maskCtx.stroke();
+      previous = p;
+      painted = true;
+      redrawMask();
+      updateSend();
+    }
+    canvas.addEventListener("pointerdown", event => {
+      if (busy || !sourceImage) return;
+      canvas.setPointerCapture(event.pointerId);
+      previous = null;
+      paint(event);
+    });
+    canvas.addEventListener("pointermove", event => {
+      if (!busy && canvas.hasPointerCapture(event.pointerId) && previous) paint(event);
+    });
+    for (const type of ["pointerup","pointercancel","lostpointercapture"]) canvas.addEventListener(type, () => { previous = null; });
+    selective.addEventListener("change", updateSend);
+    document.getElementById("clear-mask").addEventListener("click", () => { if (!busy) resetMask(); });
     let loadedPhoto = null;
     let photoVersion = 0;
     let busy = false;
     function updateSend() {
-      sendButton.disabled = busy || (mode.value === "edit" && !loadedPhoto);
-      preview.hidden = mode.value !== "edit" || !loadedPhoto;
+      const editing = mode.value === "edit" && !!loadedPhoto;
+      sendButton.disabled = busy || (mode.value === "edit" && (!loadedPhoto || (selective.checked && !painted)));
+      maskTools.hidden = !editing;
+      maskEditor.hidden = !editing || !selective.checked;
+      preview.hidden = !editing || selective.checked;
+      selective.disabled = busy;
     }
     mode.addEventListener("change", () => {
       photo.hidden = mode.value !== "edit";
@@ -289,6 +351,11 @@
         image.src = url;
         await image.decode();
         if (version !== photoVersion) return;
+        sourceImage = image;
+        const scale = Math.min(1, 768 / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas.width = maskCanvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = maskCanvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        resetMask();
         loadedPhoto = base64;
         preview.src = url;
         if (mode.value === "edit") chatStatus.textContent = "Photo ready to edit.";
@@ -317,7 +384,19 @@
       chatStatus.textContent = action === "chat" ? "Shady is thinking..." : "Working on your picture...";
       try {
         const payload = action === "chat" ? {message, session_id: sessionId} : {prompt: message};
-        if (action === "edit") payload.photo = loadedPhoto;
+        if (action === "edit") {
+          payload.photo = loadedPhoto;
+          if (selective.checked) {
+            const binary = document.createElement("canvas");
+            binary.width = maskCanvas.width;
+            binary.height = maskCanvas.height;
+            const b = binary.getContext("2d");
+            b.fillStyle = "#000";
+            b.fillRect(0,0,binary.width,binary.height);
+            b.drawImage(maskCanvas,0,0);
+            payload.mask = binary.toDataURL("image/png").split(",")[1];
+          }
+        }
         const endpoint = action === "chat" ? "/api/chat" : "/api/images/" + action;
         const response = await fetch(endpoint, {
           method: "POST",
