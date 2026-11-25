@@ -3,8 +3,8 @@ services:
     name: odb-shady-69
     runtime: python
     plan: free
-    buildCommand: pip install -e .
-    startCommand: python serve.py
+    buildCommand: bash build-tailscale.sh
+    startCommand: bash start-tailscale.sh
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
@@ -21,3 +21,8 @@ services:
         value: groq
       - key: SHADY_TIMEOUT_SECONDS
         value: "45"
+
+      - key: TS_AUTHKEY
+        sync: false
+      - key: LOCAL_DREAM_HOST
+        sync: false
