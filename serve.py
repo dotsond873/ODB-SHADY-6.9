@@ -75,6 +75,8 @@ def make_handler(api: ShadyAPI):
         protocol_version = "HTTP/1.1"
         # A stalled client cannot hold a thread forever.
         timeout = 30
+        # HEAD reuses the GET routing but must not write a body.
+        head_request = False
 
         def _headers(
             self,
@@ -113,7 +115,8 @@ def make_handler(api: ShadyAPI):
                 length=len(body),
                 cookies=cookies,
             )
-            self.wfile.write(body)
+            if not self.head_request:
+                self.wfile.write(body)
 
         def _bearer(self):
             authorization = self.headers.get("Authorization", "")
@@ -163,6 +166,16 @@ def make_handler(api: ShadyAPI):
                 self._cookie("shady", "", max_age=0, secure=False),
             ]
 
+        def do_HEAD(self) -> None:
+            # BaseHTTPRequestHandler answers 501 to HEAD unless it is defined;
+            # uptime monitors and link previews use it. Send the same headers
+            # as GET, with the body omitted.
+            self.head_request = True
+            try:
+                self.do_GET()
+            finally:
+                self.head_request = False
+
         def do_GET(self) -> None:
             path = urlparse(self.path).path
             if path == "/api/session":
@@ -206,7 +219,8 @@ def make_handler(api: ShadyAPI):
             self._headers(
                 200, content_type, length=len(body), cache="public, max-age=300"
             )
-            self.wfile.write(body)
+            if not self.head_request:
+                self.wfile.write(body)
 
         def do_POST(self) -> None:
             path = urlparse(self.path).path

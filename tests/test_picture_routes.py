@@ -82,6 +82,19 @@ def test_responses_are_length_delimited(service):
     assert requests.get(service + "/api/models").status_code == 401
 
 
+def test_head_requests_are_answered_without_a_body(service):
+    # Uptime monitors and link previews probe with HEAD. It shares the GET
+    # routing, so the headers must match while no body is written.
+    for path in ("/", "/api/health"):
+        head = requests.head(service + path)
+        page = requests.get(service + path)
+        assert head.status_code == 200
+        assert head.content == b""
+        assert head.headers["Content-Length"] == page.headers["Content-Length"]
+    assert requests.head(service + "/api/models").status_code == 401
+    assert requests.head(service + "/nope").status_code == 404
+
+
 def test_memory_routes_require_auth_and_persist(service):
     assert requests.get(service + "/api/memories").status_code == 401
     login = requests.post(service + "/api/login", headers={"Authorization": "Bearer " + "a"*32})
