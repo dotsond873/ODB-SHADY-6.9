@@ -8,10 +8,12 @@ version = "0.1.0"
 description = "An independent, modular personal AI assistant."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["requests>=2.32,<3", "Pillow>=11,<13"]
+dependencies = ["requests>=2.32,<3"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+# Pillow is only needed for the optional Local Dream image backend.
+local-image = ["Pillow>=11,<13"]
+dev = ["pytest>=8.0", "Pillow>=11,<13"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

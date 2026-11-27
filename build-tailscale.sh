@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-pip install -e .
+pip install -e ".[local-image]"
 version=1.90.9
 archive="tailscale_${version}_amd64.tgz"
 tmp=$(mktemp -d)

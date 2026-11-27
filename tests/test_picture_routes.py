@@ -62,13 +62,51 @@ def test_picture_routes(service, monkeypatch, action, code):
     assert client.post(route, json={"prompt": "sample"}).status_code == 503
 
 
+def test_https_requests_receive_a_secure_host_prefixed_cookie(service):
+    login = requests.post(
+        service + "/api/login",
+        headers={"Authorization": "Bearer " + "a"*32, "X-Forwarded-Proto": "https"},
+    )
+    cookie = login.headers["Set-Cookie"]
+    assert cookie.startswith("__Host-shady=")
+    assert "Secure" in cookie
+    headers = {"Cookie": cookie.split(";")[0]}
+    assert requests.get(service + "/api/session", headers=headers).ok
+
+
+def test_responses_are_length_delimited(service):
+    health = requests.get(service + "/api/health")
+    assert health.headers["Content-Length"] == str(len(health.content))
+    page = requests.get(service + "/")
+    assert page.headers["Content-Length"] == str(len(page.content))
+    assert requests.get(service + "/api/models").status_code == 401
+
+
+def test_memory_routes_require_auth_and_persist(service):
+    assert requests.get(service + "/api/memories").status_code == 401
+    login = requests.post(service + "/api/login", headers={"Authorization": "Bearer " + "a"*32})
+    headers = {"Cookie": login.headers["Set-Cookie"].split(";")[0]}
+    created = requests.post(service + "/api/memories", headers=headers,
+                            json={"content": "Owner likes mint"})
+    assert created.status_code == 201
+    listing = requests.get(service + "/api/memories", headers=headers).json()["memories"]
+    assert [item["content"] for item in listing] == ["Owner likes mint"]
+    removed = requests.post(service + "/api/memories/delete", headers=headers,
+                            json={"id": listing[0]["id"]})
+    assert removed.status_code == 200
+    assert requests.get(service + "/api/memories", headers=headers).json()["memories"] == []
+
+
 def test_session_survives_requests_without_resending_code(service, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     for code in ("a"*32, "b"*32):
         login = requests.post(service + "/api/login", headers={"Authorization": "Bearer " + code})
         assert login.status_code == 200
         cookie = login.headers["Set-Cookie"]
-        assert "HttpOnly" in cookie and "Secure" in cookie and code not in cookie
+        # The fixture serves plain HTTP, where browsers reject both the Secure
+        # flag and the __Host- prefix, so a working local cookie looks like this.
+        assert "HttpOnly" in cookie and code not in cookie
+        assert "Secure" not in cookie and cookie.startswith("shady=")
         headers = {"Cookie": cookie.split(";")[0]}
         assert requests.get(service + "/api/session", headers=headers).ok
         for action in ("create", "edit"):

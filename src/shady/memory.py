@@ -5,11 +5,12 @@ Do not save passwords, API keys, payment details, or other secrets as memories.
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+from .storage import resolve_db_path
 
 
 @dataclass(frozen=True)
@@ -32,8 +33,7 @@ class MemoryStore:
     """SQLite-backed memory and conversation history."""
 
     def __init__(self, db_path: str | Path | None = None) -> None:
-        configured = db_path or os.getenv("SHADY_DB_PATH", "data/shady.sqlite3")
-        self.db_path = Path(configured)
+        self.db_path = resolve_db_path(db_path)
         if str(self.db_path) != ":memory:":
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()

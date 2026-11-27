@@ -13,6 +13,8 @@ from pathlib import Path
 from uuid import uuid4
 from typing import Any, Mapping, Sequence
 
+from .storage import resolve_db_path
+
 
 class TaskStatus(str, Enum):
     QUEUED = "queued"
@@ -65,8 +67,8 @@ class Task:
 class TaskStore:
     """SQLite-backed task/step state with explicit state transitions."""
 
-    def __init__(self, db_path: str | Path = "data/shady.sqlite3") -> None:
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: str | Path | None = None) -> None:
+        self.db_path = resolve_db_path(db_path)
         if str(self.db_path) != ":memory:":
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:

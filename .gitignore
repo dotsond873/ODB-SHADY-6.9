@@ -12,3 +12,5 @@ venv/
 dist/
 build/
 *.egg-info/
+# Local SQLite databases, logs and the code workspace.
+data/

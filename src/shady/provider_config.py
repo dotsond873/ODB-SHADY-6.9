@@ -14,10 +14,11 @@ def build_router_from_env(
     *,
     transport: Transport | None = None,
 ) -> ModelRouter:
-    """Build a Gemini-first router with an optional legacy provider.
+    """Build the ordered provider chain: Gemini first when configured, then Groq.
 
-    Defaults target Groq Cloud. Required: SHADY_API_KEY and SHADY_MODEL.
-    Optional: SHADY_API_BASE_URL, SHADY_PROVIDER_NAME, SHADY_TIMEOUT_SECONDS.
+    Defaults target Groq Cloud. Required: SHADY_API_KEY and SHADY_MODEL, or
+    GEMINI_API_KEY on its own. Optional: SHADY_API_BASE_URL,
+    SHADY_PROVIDER_NAME, SHADY_TIMEOUT_SECONDS, GEMINI_MODEL.
     """
     env = os.environ if environ is None else environ
     api_key = env.get("SHADY_API_KEY", "").strip()

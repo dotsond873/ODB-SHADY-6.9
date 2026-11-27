@@ -5,12 +5,14 @@ import sqlite3
 from pathlib import Path
 from uuid import uuid4
 
+from .storage import resolve_db_path
+
 
 class ApprovalStore:
     """Store pending approvals and consume each approval at most once."""
 
-    def __init__(self, db_path: str | Path = "data/shady.sqlite3") -> None:
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: str | Path | None = None) -> None:
+        self.db_path = resolve_db_path(db_path)
         if str(self.db_path) != ":memory:":
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:

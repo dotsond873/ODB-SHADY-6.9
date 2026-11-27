@@ -37,6 +37,14 @@ Never paste either secret into GitHub files, chat messages, or source code.
 
 Render hosting may also have plan limits or charges; review the current plan and any paid add-ons before confirming deployment.
 
+### Keeping it free
+
+The default setup needs no paid service: chat uses Groq's free tier by default, an optional `GEMINI_API_KEY` adds Gemini's free tier as the first provider, and the **Write code** mode runs scripts locally on the service host. Picture generation is the only metered path — leave `OPENAI_API_KEY` unset if you do not want it, and review each provider's current limits before relying on them.
+
+### Code workspace
+
+Set `SHADY_WORKSPACE` to choose where the Write code mode may read and write files (default `data/workspace`). On the free plan this directory is part of the ephemeral filesystem, so written files disappear on restart or redeploy, just like the SQLite database.
+
 ## Storage warning
 
 The starter Blueprint uses a free web-service plan and does not attach a persistent disk. Its local SQLite memory database can be lost when the service restarts, redeploys, or is recycled. Treat this as a test deployment only until persistent storage and backups are configured. A persistent Render disk generally requires a paid service plan; do not enable one without reviewing and approving its cost.

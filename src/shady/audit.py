@@ -6,12 +6,14 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from .storage import resolve_db_path
+
 
 class AuditLog:
     """Persist action metadata without recording raw arguments or secrets."""
 
-    def __init__(self, db_path: str | Path = "data/shady.sqlite3") -> None:
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: str | Path | None = None) -> None:
+        self.db_path = resolve_db_path(db_path)
         if str(self.db_path) != ":memory:":
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:

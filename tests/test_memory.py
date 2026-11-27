@@ -38,6 +38,20 @@ def test_invalid_message_role_is_rejected(tmp_path):
         MemoryStore(tmp_path / "db.sqlite3").add_message("one", "system", "Nope")
 
 
+def test_configured_database_path_applies_to_every_store(monkeypatch, tmp_path):
+    from shady.approvals import ApprovalStore
+    from shady.audit import AuditLog
+    from shady.tasks import TaskStore
+
+    target = tmp_path / "shared.sqlite3"
+    monkeypatch.setenv("SHADY_DB_PATH", str(target))
+    MemoryStore()
+    AuditLog()
+    ApprovalStore()
+    TaskStore()
+    assert target.exists()
+
+
 def test_memory_search_matches_relevant_terms_in_natural_language_query(tmp_path):
     store = MemoryStore(tmp_path / "db.sqlite3")
     store.add_memory("The project codename is SHADY.")

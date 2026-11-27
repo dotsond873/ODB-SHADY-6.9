@@ -35,7 +35,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-The SQLite database is created locally at `data/shady.sqlite3` by default. Set `SHADY_DB_PATH` to choose another path. Keep database files and credentials out of Git.
+The SQLite database is created locally at `data/shady.sqlite3` by default. Set `SHADY_DB_PATH` to choose another path; it applies to memories, chat history, approvals, audit records, and task plans alike. Keep database files and credentials out of Git.
 
 ## Run the web interface
 
@@ -57,7 +57,7 @@ Start the server with:
 python serve.py
 ```
 
-Open the server address in a browser. The landing page's Enter button opens the chat panel. The owner enters the access code; it is held in browser memory only and sent as a bearer token over the same-origin HTTPS connection. The API validates the token, session UUID, message size, and configured model before calling Shady. The health endpoint does not reveal credentials.
+Open the server address in a browser. The landing page's Enter button opens the chat panel. The owner enters the access code once; it is exchanged for a signed, HttpOnly, seven-day session cookie scoped to the same origin, so the code itself is not kept in the page. Over plain HTTP (local development only) the cookie is sent without the `Secure` flag and without the `__Host-` prefix, which browsers refuse on insecure origins. The API validates the token, session UUID, message size, and configured model before calling Shady. The health endpoint does not reveal credentials.
 
 Do not deploy the service publicly until all three required secrets are configured in the host's private environment settings and HTTPS is enabled. The access code is a single-owner shared secret, not a multi-user account system. Rotate it immediately if exposed. Model usage can incur charges.
 
@@ -113,9 +113,18 @@ conversation = ConversationService(router=router, memory=memory)
 
 The adapter sends requests only when the application calls it. Model usage may incur provider charges; costs, limits, and billing are controlled by the selected provider. No API key is included in this repository.
 
+## Writing code
+
+The web interface has a **Write code** mode. The model proposes a plan built only from the registered code tools, and nothing runs until the owner approves each step.
+* `list_files` and `read_file` are read-only and run immediately.
+* `write_file` creates or replaces a file and always requires approval.
+* `run_python` runs a `.py` file already in the workspace and always requires approval.
+Files live in `SHADY_WORKSPACE` (default `data/workspace`), and no path can escape that directory. Scripts run in a child process with CPU, memory and file-size limits and a 15 second timeout. This is a guard rail, not a hardened sandbox: approved code runs on the same machine as the server, so keep the owner token private and keep the workspace out of Git. Code execution is local and free; only the model call that proposed the plan uses a provider.
+
 ## Safety and control
 
-- Memory is local-first and can be listed or deleted through `MemoryStore`.
+- Memory is local-first and can be listed, saved, or deleted from the chat panel (`GET /api/memories`, `POST /api/memories`, `POST /api/memories/delete`) or through `MemoryStore`. Saved memories are matched against each new message and offered to the model as reference.
+- Code tasks are planned with `POST /api/tasks`, advanced one step at a time with `POST /api/tasks/step`, and only executed after `POST /api/tasks/approve`. `POST /api/tasks/deny` marks the step failed without running it.
 - Do not save passwords, API keys, payment details, or other secrets as memories.
 - Consequential and destructive actions require explicit user approval.
 - Model fallback is limited to configured providers; it does not silently add services or spend money.
