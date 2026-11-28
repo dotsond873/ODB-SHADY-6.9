@@ -1,4 +1,4 @@
-"""Owner-only picture creation and editing through the OpenAI Images API."""
+"""Owner-only picture creation and editing through a configured provider."""
 import base64
 import binascii
 import os
@@ -71,13 +71,19 @@ def gemini_picture(payload, *, edit, key):
 
 
 def make_picture(payload, *, edit):
-    if os.getenv("SHADY_IMAGE_PROVIDER", "").strip().lower() == "local_dream":
+    provider = os.getenv("SHADY_IMAGE_PROVIDER", "").strip().lower()
+    if provider == "local_dream":
         from .local_dream import picture
         return picture(payload, edit=edit)
 
-    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if gemini_key:
-        return gemini_picture(payload, edit=edit, key=gemini_key)
+    if provider == "gemini":
+        key = os.getenv("GEMINI_API_KEY", "").strip()
+        if not key:
+            return 503, {"error": "Gemini pictures require GEMINI_API_KEY."}
+        return gemini_picture(payload, edit=edit, key=key)
+
+    if provider != "openai":
+        return 503, {"error": "Pictures are disabled. Configure Local Dream to use your own image server."}
 
     key = os.getenv("OPENAI_API_KEY", "").strip()
     if not key:

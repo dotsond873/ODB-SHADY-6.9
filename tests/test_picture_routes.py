@@ -29,6 +29,7 @@ def service(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("action,code", [("create", "a"), ("edit", "b")])
 def test_picture_routes(service, monkeypatch, action, code):
+    monkeypatch.setenv("SHADY_IMAGE_PROVIDER", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "test-image")
     encoded = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j/MsAAAAASUVORK5CYII="
     png = base64.b64decode(encoded)
@@ -60,6 +61,23 @@ def test_picture_routes(service, monkeypatch, action, code):
     assert result.json()["image"] == "data:image/png;base64," + encoded
     monkeypatch.delenv("OPENAI_API_KEY")
     assert client.post(route, json={"prompt": "sample"}).status_code == 503
+
+
+def test_image_credentials_do_not_enable_cloud_pictures(service, monkeypatch):
+    monkeypatch.delenv("SHADY_IMAGE_PROVIDER", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai")
+
+    def unexpected_request(*args, **kwargs):
+        pytest.fail("Cloud pictures must require explicit provider selection")
+
+    monkeypatch.setattr("shady.images.requests.post", unexpected_request)
+    headers = {"Authorization": "Bearer " + "a" * 32}
+    for action in ("create", "edit"):
+        result = requests.Session().post(service + "/api/images/" + action, headers=headers,
+                               json={"prompt": "sample"})
+        assert result.status_code == 503
+        assert "disabled" in result.json()["error"]
 
 
 def test_https_requests_receive_a_secure_host_prefixed_cookie(service):
