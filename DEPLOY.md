@@ -39,7 +39,7 @@ Render hosting may also have plan limits or charges; review the current plan and
 
 ### Keeping it free
 
-The default setup needs no paid service: chat uses Groq's free tier by default, an optional `GEMINI_API_KEY` adds Gemini's free tier as the first provider, and the **Write code** mode runs scripts locally on the service host. Picture generation is the only metered path — leave `OPENAI_API_KEY` unset if you do not want it, and review each provider's current limits before relying on them.
+Use Groq or Gemini credentials from accounts with billing disabled for chat. Provider billing settings determine whether chat requests can incur charges. Pictures are disabled by default. Set `SHADY_IMAGE_PROVIDER=local_dream` to use your own Local Dream server via Tailscale without a cloud image API.
 
 ### Code workspace
 
@@ -59,6 +59,6 @@ Render checks `/api/health`. The endpoint reports service health and whether a m
 
 ### Pictures and collaborator access
 
-In the Render web service environment, set `OPENAI_API_KEY` to an OpenAI API key with image-model access and billing. Picture creation and edits use OpenAI's Images API with `gpt-image-2`. Text chat continues to use the existing Groq configuration. Photo edits send the selected photo and instructions to OpenAI. Picture results can be downloaded in the chat.
+Cloud pictures require an explicit provider selection. Set `SHADY_IMAGE_PROVIDER=openai` with an image-enabled `OPENAI_API_KEY`, or set `SHADY_IMAGE_PROVIDER=gemini` with `GEMINI_API_KEY`. These providers can charge for image generation and edits. Leave the provider unset for chat only. Picture edits send the photo and instructions to the selected provider, and results can be downloaded from the chat.
 
 To give Beth her own access, set `SHADY_BETH_ACCESS_TOKEN` to a unique private code of at least 32 characters. Save and deploy. Both codes open the same chat and picture tools. Each tab starts a separate conversation.
